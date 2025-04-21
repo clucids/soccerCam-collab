@@ -8,9 +8,6 @@ import numpy as np
 from flask import Flask, Response, jsonify
 from threading import Thread
 
-# Global Flags (Placed in Shared Data Now)
-# is_recording = False
-# is_paused = False
 
 # Cameras Setup
 width = 1280
@@ -183,8 +180,8 @@ def start_recording():
         led.on()
 
     device_state = {
-        "is_recording": is_recording,  # or False, depending on your app logic
-        "is_paused": is_paused  # or True
+        "is_recording": is_recording,
+        "is_paused": is_paused
     }
     return jsonify(device_state)
 
@@ -199,8 +196,8 @@ def stop_recording():
         led.off()
 
     device_state = {
-        "is_recording": is_recording,  # or False, depending on your app logic
-        "is_paused": is_paused  # or True
+        "is_recording": is_recording,
+        "is_paused": is_paused
     }
     return jsonify(device_state)
 
@@ -216,8 +213,8 @@ def pause_recording():
             print("paused")
 
     device_state = {
-        "is_recording": is_recording,  # or False, depending on your app logic
-        "is_paused": is_paused  # or True
+        "is_recording": is_recording,
+        "is_paused": is_paused
     }
     return jsonify(device_state)
 
@@ -233,7 +230,18 @@ def resume_recording():
             print("resumed")
 
     device_state = {
-        "is_recording": is_recording,  # or False, depending on your app logic
+        "is_recording": is_recording,
+        "is_paused": is_paused
+    }
+    return jsonify(device_state)
+
+
+@app.route('/state', methods=['GET'])
+def get_device_state():
+    global is_recording, is_paused, led
+
+    device_state = {
+        "is_recording": is_recording,
         "is_paused": is_paused  # or True
     }
     return jsonify(device_state)
