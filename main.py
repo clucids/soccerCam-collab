@@ -5,8 +5,10 @@ import time
 import os
 import re
 import numpy as np
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, send_from_directory, abort
 from threading import Thread
+import os
+import shutil
 
 
 # Cameras Setup
@@ -33,7 +35,18 @@ is_recording = False
 is_paused = False
 out = None
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
+RECORDINGS_FOLDER = os.path.join(os.getcwd(), 'recordings')
 
+
+def get_usb_path():
+    if os.path.exists("/media/pi/"):
+        connected_devices = os.listdir("/media/pi/")
+        if connected_devices:
+            return True, os.path.join("/media/pi/", connected_devices[0])
+        else:
+            return False, None
+    else:
+        return False, None
 
 def prepare_recording_filename():
     global out, fourcc
@@ -246,6 +259,54 @@ def get_device_state():
     }
     return jsonify(device_state)
 
+
+@app.route('/recordings/<path:filename>', methods=['GET'])
+def download_recording(filename):
+    try:
+        return send_from_directory(RECORDINGS_FOLDER, filename, as_attachment=True)
+    except FileNotFoundError:
+        abort(404)
+
+
+@app.route('/recordings', methods=['GET'])
+def list_recordings():
+    try:
+        files = os.listdir(RECORDINGS_FOLDER)
+        return jsonify({"files": files})
+    except FileNotFoundError:
+        return jsonify({"files": []})
+
+@app.route('/delete/<path:filename>', methods=['DELETE', 'GET'])
+def delete_recording(filename):
+    file_path = os.path.join(RECORDINGS_FOLDER, filename)
+    if os.path.isfile(file_path):
+        try:
+            os.remove(file_path)
+            return jsonify({"success": True, "message": f"Deleted {filename}"})
+        except Exception as e:
+            return jsonify({"success": False, "message": str(e)}), 500
+    else:
+        return jsonify({"success": False, "message": "File not found"}), 404
+
+
+@app.route('/transfer/<path:filename>', methods=['POST', 'GET'])
+def transfer_recording(filename):
+    source_path = os.path.join(RECORDINGS_FOLDER, filename)
+    success, usb_path = get_usb_path()
+
+    if not success:
+        return jsonify({"success": False, "message": "USB Device not found"}), 200
+
+    dest_path = os.path.join(usb_path, filename)
+
+    if os.path.isfile(source_path):
+        try:
+            shutil.copy(source_path, dest_path)
+            return jsonify({"success": True, "message": f"Transferred {filename} to USB"})
+        except Exception as e:
+            return jsonify({"success": False, "message": str(e)}), 500
+    else:
+        return jsonify({"success": False, "message": "File not found"}), 404
 
 def run_flask():
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
